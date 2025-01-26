@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../models/destination.dart';
+import '../services/auth_service.dart';
 import '../widgets/planned_trip_card.dart';
 import '../services/trip_planner_service.dart';
 
@@ -11,30 +12,42 @@ class TripPlannerScreen extends StatefulWidget {
 
 class _TripPlannerScreenState extends State<TripPlannerScreen> {
   final TripPlannerService _tripPlannerService = TripPlannerService();
+  final AuthService _authService = AuthService();
   List<Map<String, dynamic>> _plannedTrips = [];
   DateTime? _selectedStartDate;
   DateTime? _selectedEndDate;
   Destination? _selectedDestination;
   final TextEditingController _budgetController = TextEditingController();
+  String? _userEmail;
 
   @override
   void initState() {
     super.initState();
-    _loadPlannedTrips();
+    _loadUserEmail();
+  }
+
+  Future<void> _loadUserEmail() async {
+    _userEmail = await _authService.getEmail();
+    if (_userEmail != null) {
+      _loadPlannedTrips();
+    }
   }
 
   Future<void> _loadPlannedTrips() async {
-    final trips = await _tripPlannerService.loadPlannedTrips();
-    setState(() {
-      _plannedTrips = trips;
-    });
+    if (_userEmail != null) {
+      final trips = await _tripPlannerService.loadPlannedTrips(_userEmail!);
+      setState(() {
+        _plannedTrips = trips;
+      });
+    }
   }
 
   Future<void> _addTrip() async {
     if (_selectedDestination == null ||
         _selectedStartDate == null ||
         _selectedEndDate == null ||
-        _budgetController.text.isEmpty) {
+        _budgetController.text.isEmpty ||
+        _userEmail == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Please complete all fields!')),
       );
@@ -48,7 +61,7 @@ class _TripPlannerScreenState extends State<TripPlannerScreen> {
       'budget': _budgetController.text,
     };
 
-    await _tripPlannerService.addTrip(_plannedTrips, newTrip);
+    await _tripPlannerService.addTrip(_userEmail!, _plannedTrips, newTrip);
     _loadPlannedTrips();
 
     _selectedStartDate = null;
@@ -188,12 +201,13 @@ class _TripPlannerScreenState extends State<TripPlannerScreen> {
                 TextButton(
                   onPressed: () async {
                     await _tripPlannerService.editTrip(
-                      _plannedTrips, index, {
-                        'destination': updatedDestination!.name,
+                      _userEmail!, _plannedTrips, index, {
+                      'destination': updatedDestination!.name,
                       'startDate': updatedStartDate!.toIso8601String(),
                       'endDate': updatedEndDate!.toIso8601String(),
                       'budget': updatedBudget,
-                    },);
+                    },
+                    );
                     _loadPlannedTrips();
                     Navigator.pop(context);
                   },
@@ -208,7 +222,7 @@ class _TripPlannerScreenState extends State<TripPlannerScreen> {
   }
 
   void _deleteTrip(int index) async {
-    await _tripPlannerService.deleteTrip(_plannedTrips, index);
+    await _tripPlannerService.deleteTrip(_userEmail!, _plannedTrips, index);
     _loadPlannedTrips();
   }
 

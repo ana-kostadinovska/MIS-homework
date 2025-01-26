@@ -1,11 +1,23 @@
 import 'package:flutter/material.dart';
+import 'package:travel_diary/screens/login.dart';
+
+import '../services/auth_service.dart';
 
 class HomeScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-          centerTitle: true,
+        actions: [
+          IconButton(
+            onPressed: () {
+              AuthService().logout(context);
+              Navigator.of(context).push(MaterialPageRoute(builder: (context) => const LoginScreen()));
+            },
+            icon: const Icon(Icons.logout),
+          ),
+        ],
+        centerTitle: true,
           title: Text('Travel Diary',
             style: TextStyle(
               color: Colors.deepPurple,

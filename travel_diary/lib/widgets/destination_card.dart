@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/destination.dart';
 import '../screens/destinationDetails.dart';
+import '../services/auth_service.dart';
 
 class DestinationCard extends StatefulWidget {
   final Destination destination;
@@ -14,24 +15,37 @@ class DestinationCard extends StatefulWidget {
 
 class _DestinationCardState extends State<DestinationCard> {
   bool isFavorite = false;
+  String? userEmail;
 
   @override
   void initState() {
     super.initState();
-    _loadFavorites();
+    _initializeFavorites();
   }
 
-  _loadFavorites() async {
+  Future<void> _initializeFavorites() async {
+    userEmail = await AuthService().getEmail();
+    if (userEmail != null) {
+      _loadFavorites();
+    }
+  }
+
+  Future<void> _loadFavorites() async {
+    if (userEmail == null) return;
+
     final prefs = await SharedPreferences.getInstance();
-    List<String> favoriteDestinations = prefs.getStringList('favorites') ?? [];
+    List<String> favoriteDestinations = prefs.getStringList('favorites_$userEmail') ?? [];
+
     setState(() {
       isFavorite = favoriteDestinations.contains(widget.destination.name);
     });
   }
 
-  _toggleFavorite() async {
+  Future<void> _toggleFavorite() async {
+    if (userEmail == null) return;
+
     final prefs = await SharedPreferences.getInstance();
-    List<String> favoriteDestinations = prefs.getStringList('favorites') ?? [];
+    List<String> favoriteDestinations = prefs.getStringList('favorites_$userEmail') ?? [];
 
     if (isFavorite) {
       favoriteDestinations.remove(widget.destination.name);
@@ -39,7 +53,7 @@ class _DestinationCardState extends State<DestinationCard> {
       favoriteDestinations.add(widget.destination.name);
     }
 
-    await prefs.setStringList('favorites', favoriteDestinations);
+    await prefs.setStringList('favorites_$userEmail', favoriteDestinations);
 
     setState(() {
       isFavorite = !isFavorite;
@@ -60,7 +74,7 @@ class _DestinationCardState extends State<DestinationCard> {
         );
       },
       child: Card(
-        margin: EdgeInsets.symmetric(vertical: 10, horizontal: 15),
+        margin: const EdgeInsets.symmetric(vertical: 10, horizontal: 15),
         elevation: 4,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(15),
@@ -69,7 +83,7 @@ class _DestinationCardState extends State<DestinationCard> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             ClipRRect(
-              borderRadius: BorderRadius.vertical(
+              borderRadius: const BorderRadius.vertical(
                 top: Radius.circular(15),
               ),
               child: Image.network(
@@ -81,23 +95,30 @@ class _DestinationCardState extends State<DestinationCard> {
             ),
             Padding(
               padding: const EdgeInsets.all(15.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+              child: Row(
                 children: [
-                  Text(widget.destination.name,
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          widget.destination.name,
+                          style: const TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 5),
+                        Text(
+                          '${widget.destination.city}, ${widget.destination.country}',
+                          style: TextStyle(
+                            fontSize: 16,
+                            color: Colors.grey[700],
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                  SizedBox(height: 5),
-                  Text('${widget.destination.city}, ${widget.destination.country}',
-                    style: TextStyle(
-                      fontSize: 16,
-                      color: Colors.grey[700],
-                    ),
-                  ),
-                  SizedBox(height: 5),
                   IconButton(
                     icon: Icon(
                       isFavorite ? Icons.favorite : Icons.favorite_border,
@@ -114,3 +135,4 @@ class _DestinationCardState extends State<DestinationCard> {
     );
   }
 }
+
