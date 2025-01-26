@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../models/destination.dart';
 import '../services/favorites_service.dart';
 import '../widgets/favorite_card.dart';
+import '../services/auth_service.dart';
 
 class FavoritesScreen extends StatefulWidget {
   @override
@@ -10,16 +11,25 @@ class FavoritesScreen extends StatefulWidget {
 
 class _FavoritesScreenState extends State<FavoritesScreen> {
   List<Destination> favoriteDestinations = [];
+  String? userEmail;
 
   @override
   void initState() {
     super.initState();
-    _loadFavorites();
+    _initializeFavorites();
+  }
+
+  Future<void> _initializeFavorites() async {
+    userEmail = await AuthService().getEmail();
+    if (userEmail != null) {
+      _loadFavorites();
+    }
   }
 
   Future<void> _loadFavorites() async {
-    List<String> favoriteNames = await FavoritesService.loadFavorites();
+    if (userEmail == null) return;
 
+    List<String> favoriteNames = await FavoritesService.loadFavorites(userEmail!);
     List<Destination> allDestinations = destinations;
     List<Destination> favorites = allDestinations.where((d) => favoriteNames.contains(d.name)).toList();
 
@@ -29,22 +39,16 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
   }
 
   Future<void> _removeFromFavorites(String name) async {
-    await FavoritesService.removeFavorite(name);
-    _loadFavorites();
+    if (userEmail != null) {
+      await FavoritesService.removeFavorite(userEmail!, name);
+      _loadFavorites();
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        centerTitle: true,
-        title: Text(
-          'Favorites',
-          style: TextStyle(
-            color: Colors.deepPurple,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
         actions: [
           PopupMenuButton<String>(
             icon: Icon(Icons.menu, color: Colors.grey[800]),
@@ -97,10 +101,19 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
             },
           ),
         ],
+        centerTitle: true,
+        title: const Text(
+          'Favorites',
+          style: TextStyle(
+            color: Colors.deepPurple,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
       ),
       body: favoriteDestinations.isEmpty
-          ? Center(
-        child: Text('No favorites added yet!',
+          ? const Center(
+        child: Text(
+          'No favorites added yet!',
           style: TextStyle(fontSize: 18, color: Colors.grey),
         ),
       )
@@ -110,7 +123,12 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
           final destination = favoriteDestinations[index];
           return FavoriteCard(
             destination: destination,
-            onRemove: () => _removeFromFavorites(destination.name),
+            onRemove: () async {
+              await _removeFromFavorites(destination.name);
+              if (favoriteDestinations.isEmpty) {
+                Navigator.pop(context, true);
+              }
+            },
           );
         },
       ),
